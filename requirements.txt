@@ -1,0 +1,21 @@
+# Free AugmentCode Data Cleaner - Dependencies
+# Core GUI and system libraries (most are built-in with Python)
+
+# Optional: For more advanced GUI styling (uncomment if needed)
+# tkinter-tooltip>=1.0.0
+# pillow>=9.0.0
+
+# For packaging the application
+pyinstaller>=5.0.0
+
+# For enhanced file operations
+pathlib2>=2.3.0
+
+# For better JSON handling
+jsonschema>=4.0.0
+
+# For configuration management
+configparser>=5.0.0
+
+# Note: Most dependencies (tkinter, sqlite3, os, shutil, uuid, json, logging) 
+# are part of Python's standard library and don't need to be installed separately
