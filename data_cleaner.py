@@ -9,13 +9,14 @@ from typing import List, Dict, Any, Optional
 import threading
 import time
 
-from utils import OSDetector, PathFinder, FileSearcher, Logger
+from utils import OSDetector, PathFinder, FileSearcher, Logger, IDEDetector
 from backup_manager import BackupManager
 from config_manager import ConfigManager
 from database_cleaner import DatabaseCleaner
 from telemetry_manager import TelemetryManager
 from workspace_cleaner import WorkspaceCleaner
 from account_cleaner import AccountDataCleaner
+from ide_manager import AugmentCodeIDEManager
 
 
 class DataCleanerStatus:
@@ -65,6 +66,7 @@ class FreeAugmentCodeCleaner:
         self.telemetry_manager = TelemetryManager(self.backup_manager)
         self.workspace_cleaner = WorkspaceCleaner(self.backup_manager)
         self.account_cleaner = AccountDataCleaner(self.backup_manager)
+        self.ide_manager = AugmentCodeIDEManager()
         
         # Discovery results
         self.augmentcode_paths = []
@@ -81,7 +83,7 @@ class FreeAugmentCodeCleaner:
     def discover_augmentcode_data(self, custom_paths: Optional[List[Path]] = None) -> Dict[str, Any]:
         """Discover all AugmentCode data locations."""
         self.status.update("Starting AugmentCode data discovery...")
-        self.status.total_steps = 6
+        self.status.total_steps = 7  # Added IDE scanning step
         self.status.completed_steps = 0
 
         discovery_results = {
@@ -90,6 +92,7 @@ class FreeAugmentCodeCleaner:
             'database_files': [],
             'workspace_locations': [],
             'account_data': {},
+            'ide_scan_results': {},
             'total_locations_found': 0
         }
         
@@ -132,7 +135,13 @@ class FreeAugmentCodeCleaner:
             discovery_results['account_data'] = self.account_data
             self.status.update("Account data discovery complete", step_completed=True)
 
-            # Step 6: Calculate totals
+            # Step 6: Perform comprehensive IDE scan
+            self.status.update("Scanning IDEs for AugmentCode installations...")
+            ide_scan_results = self.ide_manager.perform_comprehensive_scan()
+            discovery_results['ide_scan_results'] = ide_scan_results
+            self.status.update("IDE scan complete", step_completed=True)
+
+            # Step 7: Calculate totals
             self.status.update("Finalizing discovery results...")
             total_locations = (
                 len(self.augmentcode_paths) +
@@ -320,6 +329,12 @@ class FreeAugmentCodeCleaner:
             account_report = self.account_cleaner.generate_account_report(self.account_data)
             report_lines.append(account_report)
 
+        # IDE scan results
+        ide_report = self.ide_manager.generate_detailed_report()
+        if ide_report:
+            report_lines.append("")
+            report_lines.append(ide_report)
+
         return "\n".join(report_lines)
     
     def _format_size(self, size_bytes: int) -> str:
@@ -354,3 +369,32 @@ class FreeAugmentCodeCleaner:
             self.logger.error(error_msg)
             self.status.set_error(error_msg)
             return False
+
+    def terminate_augmentcode_processes(self, force: bool = False) -> Dict[str, Any]:
+        """Terminate running AugmentCode processes across all IDEs."""
+        try:
+            self.status.update("Terminating AugmentCode processes...")
+            result = self.ide_manager.safe_terminate_processes(force=force)
+
+            if result['status'] == 'success':
+                self.status.update("All AugmentCode processes terminated successfully")
+                self.logger.info("AugmentCode processes terminated successfully")
+            else:
+                self.status.update("Some AugmentCode processes could not be terminated")
+                self.logger.warning("Some AugmentCode processes could not be terminated")
+
+            return result
+
+        except Exception as e:
+            error_msg = f"Error terminating processes: {str(e)}"
+            self.logger.error(error_msg)
+            self.status.set_error(error_msg)
+            return {'status': 'error', 'message': error_msg}
+
+    def get_ide_scan_results(self) -> Dict[str, Any]:
+        """Get the latest IDE scan results."""
+        return getattr(self, 'ide_scan_results', {})
+
+    def get_supported_ides(self) -> Dict[str, str]:
+        """Get list of supported IDEs."""
+        return self.ide_manager.get_supported_ides()

@@ -8,6 +8,9 @@
 # For packaging the application
 pyinstaller>=5.0.0
 
+# For process detection and management
+psutil>=5.9.0
+
 # For enhanced file operations
 pathlib2>=2.3.0
 
